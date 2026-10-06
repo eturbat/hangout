@@ -4,6 +4,9 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
+    /* lib/*.ts import each other with .ts extensions so Node can run their tests directly */
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
 
     /* Linting */
     "noUnusedLocals": true,
@@ -11,5 +14,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
+  /* Tests run in Node (npm test), not the browser bundle */
+  "exclude": ["src/**/*.test.ts", "src/lib/test-utils.ts"]
 }
