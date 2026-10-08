@@ -15,7 +15,7 @@
   --focus: #5b4be0;
   --danger: #b42318;
 
-  --font: 'Recursive', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font: FreeMono, monospace;
 
   font-family: var(--font);
   font-variation-settings: 'CASL' 0;
