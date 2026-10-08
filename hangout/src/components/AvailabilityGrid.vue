@@ -36,13 +36,17 @@ const root = ref<HTMLElement | null>(null)
 const drag = reactive(new DragSelection())
 const cleanups: (() => void)[] = []
 
-const cellAt = (pos: CellPos): GridCell | null => props.grid.cells[pos.row]?.[pos.col] ?? null
+const cellAt = (pos: CellPos): GridCell | null => {
+	return props.grid.cells[pos.row]?.[pos.col] ?? null
+}
 const selection = () => props.selected ?? NOTHING
 
 onMounted(() => {
   const el = root.value
   if (!el) return
-  cleanups.push(attachHover(el, (pos) => emit('hover', pos ? (cellAt(pos)?.start ?? null) : null)))
+	cleanups.push(attachHover(el, (pos) => {
+		emit('hover', pos ? (cellAt(pos)?.start ?? null) : null)
+	}))
   if (props.mode === 'mine') {
     cleanups.push(
       attachDragHandlers(el, {
