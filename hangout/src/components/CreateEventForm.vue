@@ -39,10 +39,14 @@ const dayCount = computed(() => {
 })
 
 const problem = computed(() => {
-  if (!title.value.trim()) return 'Give the event a name.'
-  if (dates.value.length === 0) return 'The last date has to be on or after the first date.'
-  if (dates.value.length > MAX_DAYS) return `Pick ${MAX_DAYS} days or fewer.`
-  if (endHour.value <= startHour.value) return 'The latest time has to be after the earliest time.'
+  if (!title.value.trim())
+		return 'Give the event a name.'
+  if (dates.value.length === 0)
+		return 'The last date has to be on or after the first date.'
+  if (dates.value.length > MAX_DAYS)
+		return `Pick ${MAX_DAYS} days or fewer.`
+  if (endHour.value <= startHour.value)
+		return 'The latest time has to be after the earliest time.'
   return null
 })
 
