@@ -70,7 +70,7 @@ pkgs.mkShell {
     # Create a diretory for the generated artifacts                      #
     ######################################################################
 
-    mkdir .nix-shell
+    mkdir -p .nix-shell
     export NIX_SHELL_DIR=$PWD/.nix-shell
 
     ######################################################################
@@ -106,8 +106,9 @@ pkgs.mkShell {
         # it didn't for me when exiting in a subdirectory.     #
         ########################################################
 
-        cd $PWD
-        rm -rf $NIX_SHELL_DIR
+        # hangout: the database lives in .nix-shell/db, so it is no longer
+        # deleted here; data now survives leaving the shell. To start over:
+        #   rm -rf .nix-shell   (outside the shell)
       " \
       EXIT
 
@@ -210,14 +211,15 @@ pkgs.mkShell {
     # !!!!!!!!!!!!  from `nix-shell` is a good idea anyway:)
 
     HOST_COMMON="host\s\+all\s\+all"
-    sed -i "s|^$HOST_COMMON.*127.*$|host all all 0.0.0.0/0 trust|" $PGDATA/pg_hba.conf
-    sed -i "s|^$HOST_COMMON.*::1.*$|host all all ::/0 trust|"      $PGDATA/pg_hba.conf
+    # hangout: password-free access from this machine only (was 0.0.0.0/0, i.e. anyone on the network)
+    sed -i "s|^$HOST_COMMON.*127.*$|host all all 127.0.0.1/32 trust|" $PGDATA/pg_hba.conf
+    sed -i "s|^$HOST_COMMON.*::1.*$|host all all ::1/128 trust|"    $PGDATA/pg_hba.conf
 
     pg_ctl                                                  \
       -D $PGDATA                                            \
       -l $PGDATA/postgres.log                               \
       -o "-c unix_socket_directories='$PGDATA'"             \
-      -o "-c listen_addresses='*'"                          \
+      -o "-c listen_addresses='localhost'"                  \
       -o "-c log_destination='stderr'"                      \
       -o "-c logging_collector=on"                          \
       -o "-c log_directory='log'"                           \
@@ -226,6 +228,9 @@ pkgs.mkShell {
       -o "-c log_min_error_statement=info"                  \
       -o "-c log_connections=on"                            \
       start
+
+    # hangout: create the app database on first run (no-op afterwards).
+    createdb hangout --host=$PGDATA 2>/dev/null || true
   '';
 
   ######################################################################

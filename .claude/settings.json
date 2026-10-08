@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "Bash(npm ls:*)",
+      "Bash(npm list:*)",
+      "Bash(npm view:*)",
+      "Bash(npm outdated:*)",
+      "Bash(npm config get:*)",
+      "Bash(npm run)",
+      "Bash(npm pkg get:*)",
+      "Bash(npx tsc --noEmit:*)",
+      "Bash(npx vue-tsc --noEmit:*)",
+      "Bash(npx vite --version)",
+
+      "Bash(git fetch:*)",
+      "Bash(git diff-tree:*)",
+      "Bash(git merge-base:*)",
+      "Bash(git for-each-ref:*)",
+      "Bash(git count-objects:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+
+      "Bash(nix-shell --version)",
+      "Bash(nix --version)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/id_rsa*)",
+      "Read(./**/*.key)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(npm publish:*)"
+    ]
+  }
+}
