@@ -37,7 +37,7 @@ const drag = reactive(new DragSelection())
 const cleanups: (() => void)[] = []
 
 const cellAt = (pos: CellPos): GridCell | null => {
-	props.grid.cells[pos.row]?.[pos.col] ?? null
+	return props.grid.cells[pos.row]?.[pos.col] ?? null
 }
 const selection = () => props.selected ?? NOTHING
 
