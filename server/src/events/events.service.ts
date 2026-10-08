@@ -116,7 +116,7 @@ export class EventsService {
    * saved with a password needs that password; one saved without can be
    * edited by anyone who types it, which is how when2meet behaves.
    */
-  async join(eventId: string, name: string, password?: string, isRetry = false): Promise<JoinResult> {
+  async join(eventId: string, name: string, isRetry = false): Promise<JoinResult> {
     await this.findEvent(eventId);
 
     let participant = await this.participants.findOne({
@@ -125,11 +125,6 @@ export class EventsService {
     });
 
     if (participant) {
-      if (participant.passwordHash) {
-        const ok = password !== undefined && (await this.passwords.verify(password, participant.passwordHash));
-        if (!ok) throw new UnauthorizedException(`"${name}" is password-protected`);
-      }
-    } else {
       try {
         participant = await this.participants.save(
           this.participants.create({
@@ -144,7 +139,6 @@ export class EventsService {
         if (isUniqueViolation(error) && !isRetry) return this.join(eventId, name, password, true);
         throw error;
       }
-    }
 
     return {
       participantId: participant.id,

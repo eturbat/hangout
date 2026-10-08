@@ -22,7 +22,7 @@ export class EventsController {
 
   @Post(':id/participants')
   join(@Param('id', ParseUUIDPipe) id: string, @Body() dto: JoinEventDto) {
-    return this.events.join(id, dto.name, dto.password);
+    return this.events.join(id, dto.name);
   }
 
   @Put(':id/participants/:participantId/availability')
