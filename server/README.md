@@ -3,6 +3,53 @@
 NestJS + TypeORM + PostgreSQL. Every instant is stored and sent as UTC;
 converting to someone's zone happens only for display.
 
+## Running with the database
+
+Postgres comes from `shell.nix` in the repo root and only runs while that
+nix-shell is open.
+
+```bash
+# 1. From the repo root (not server/): starts Postgres and, on first run,
+#    creates the "hangout" database in .nix-shell/db
+nix-shell
+
+# 2. One-time setup
+cd server
+cp .env.example .env
+#    In .env: replace YOUR_USERNAME with the output of `whoami`, and set
+#    EDIT_TOKEN_SECRET to the output of `openssl rand -base64 32`
+npm install
+
+# 3. Start the API (restarts when files change)
+npm run start:dev
+#    hangout server listening on http://localhost:3000/api (try /api/health)
+
+# 4. In a second terminal: check that the server can reach the database
+curl localhost:3000/api/health
+#    {"status":"ok","database":"up"}   (503 if Postgres isn't reachable)
+```
+
+Good to know:
+
+- **Run `nix-shell` from the repo root.** The database lives in
+  `<where you ran it>/.nix-shell/db`, so running it from `server/` gives you a
+  second, empty database.
+- **Exiting a nix-shell stops Postgres**, including for any other nix-shell
+  you have open. Keep the first shell open while you work. Your data stays in
+  `.nix-shell/db` and comes back the next time you enter the shell.
+- **Tables are created automatically** from the entity classes when the
+  server starts (TypeORM `synchronize`). Set `DB_SYNCHRONIZE=false` in `.env`
+  once the database holds data you want to keep.
+- **Look at the data** (inside nix-shell): `psql --host=$PGDATA hangout`
+- **Postgres log:** `.nix-shell/db/log/`
+- **Start over with an empty database:** exit every nix-shell, then
+  `rm -rf .nix-shell` from the repo root.
+- **"Port 5432 already in use"** means another Postgres is running (a system
+  one, or another nix-shell). Stop it, or uncomment the `port = 5433` line in
+  `shell.nix`, run `rm -rf .nix-shell`, and change the port in `DATABASE_URL`.
+- **`DATABASE_URL is not set`** means `server/.env` is missing. Start the
+  server from inside `server/` so it finds the file.
+
 ## Layout
 
 | Path                                             | What                                                        |
