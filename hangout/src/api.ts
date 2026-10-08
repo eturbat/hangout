@@ -82,9 +82,9 @@ export const api = {
 
   getEvent: (eventId: string) => request<EventView>('GET', `/events/${eventId}`),
 
-  /** Creates the name the first time; a name saved with a password needs it again. */
-  join: (eventId: string, name: string, password?: string) =>
-    request<Session>('POST', `/events/${eventId}/participants`, { name, password: password || undefined }),
+  /** Creates the name the first time; a name saved. */
+  join: (eventId: string, name: string ) =>
+    request<Session>('POST', `/events/${eventId}/participants`, { name }),
 
   /** Replaces this participant's whole selection. Returns the refreshed event. */
   saveAvailability: (eventId: string, session: Session, slots: string[]) =>

@@ -76,7 +76,6 @@ const total = computed(() => event.value?.participants.length ?? 0)
 const session = ref<Session | null>(loadSession(props.eventId))
 const mySlots = ref<Set<string>>(new Set())
 const name = ref('')
-const password = ref('')
 const signingIn = ref(false)
 const signInError = ref<string | null>(null)
 
@@ -89,16 +88,13 @@ async function signIn(): Promise<void> {
   }
   signingIn.value = true
   try {
-    const s = await api.join(props.eventId, trimmed, password.value)
+    const s = await api.join(props.eventId, trimmed )
     session.value = s
     saveSession(props.eventId, s)
     mySlots.value = new Set(s.slots)
-    password.value = ''
     await load() // so your name appears in the group count
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      signInError.value = 'That name is password-protected. Enter its password to edit it, or use a different name.'
-    } else {
+    if (!(error instanceof ApiError && error.status === 401)) {
       signInError.value =
         error instanceof ApiError ? error.message : "Couldn't reach the server. Check your connection and try again."
     }
@@ -273,11 +269,6 @@ onBeforeUnmount(() => {
             <div class="field">
               <label class="field__label" for="your-name">Your name</label>
               <input id="your-name" v-model="name" class="input" maxlength="80" autocomplete="name" />
-            </div>
-            <div class="field">
-              <label class="field__label" for="your-password">Password <span class="muted">(optional)</span></label>
-              <input id="your-password" v-model="password" class="input" type="password" maxlength="200" autocomplete="off" />
-              <p class="field__hint">Set one so only you can change your times later.</p>
             </div>
             <p v-if="signInError" class="error" role="alert">{{ signInError }}</p>
             <button class="btn" type="submit" :disabled="signingIn">{{ signingIn ? 'Signing in…' : 'Sign in' }}</button>
