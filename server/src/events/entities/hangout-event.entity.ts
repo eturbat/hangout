@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { SlotSpec } from '../../scheduling/slot-spec';
 import { Participant } from './participant.entity';
 
 // 'dates' = specific calendar dates; 'weekdays' = a general week (milestone 2)
@@ -19,7 +20,7 @@ export interface NewEventDetails {
 // Named HangoutEvent, not Event: Node and browsers already have a global
 // class called Event, and a forgotten import would silently use that one.
 @Entity('events')
-export class HangoutEvent {
+export class HangoutEvent implements SlotSpec {
   // A random UUID, so nobody can guess the link to someone else's event
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -62,7 +63,7 @@ export class HangoutEvent {
   participants!: Participant[];
 
   // Factory method: builds a new, not-yet-saved event from the form details.
-  // Checking that the time zone and hours make sense is TimeZoneService's job (next PR).
+  // Checking that the time zone and hours make sense is TimeZoneService.normalizeSpec()'s job.
   static create(details: NewEventDetails): HangoutEvent {
     const event = new HangoutEvent();
     event.title = details.title;

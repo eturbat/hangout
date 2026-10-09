@@ -2,8 +2,8 @@ import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, Pri
 import { HangoutEvent } from './hangout-event.entity';
 import { TimeSlot } from './time-slot.entity';
 
-// Someone who joined an event under a name. There are no accounts or
-// passwords: entering a name signs you in as that name, like when2meet.
+// Someone who joined an event under a name. There are no accounts:
+// entering a name signs you in as that name, like when2meet.
 @Entity('participants')
 @Unique(['eventId', 'name']) // a name can only be used once per event
 export class Participant {

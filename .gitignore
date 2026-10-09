@@ -11,9 +11,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+*.tsbuildinfo
 *.local
 .env
-server/tsconfig.build.tsbuildinfo
 
 # Editor directories and files
 .git/*

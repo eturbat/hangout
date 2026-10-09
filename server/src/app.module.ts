@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventsModule } from './events/events.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -15,6 +16,9 @@ import { HealthController } from './health.controller';
         return {
           type: 'postgres' as const,
           url,
+          // Random IDs come from Postgres's built-in gen_random_uuid()
+          // (Postgres 13+) instead of the optional "uuid-ossp" extension.
+          uuidExtension: 'pgcrypto' as const,
           // Each feature module registers its own entities with
           // TypeOrmModule.forFeature([...]), so adding entities later
           // doesn't mean editing this file.
@@ -26,7 +30,7 @@ import { HealthController } from './health.controller';
         };
       },
     }),
-    // EventsModule is added here in the events PR.
+    EventsModule,
   ],
   controllers: [HealthController],
 })

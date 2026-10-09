@@ -1,17 +1,11 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, Length } from 'class-validator';
-import { emptyToUndefined, trim } from './transforms';
+import { IsString, Length } from 'class-validator';
+import { trim } from './transforms';
 
+// The body of POST /api/events/:id/participants: just the person's name.
 export class JoinEventDto {
   @IsString()
   @Transform(trim)
   @Length(1, 80)
   name!: string;
-
-  /** Only used the first time a name is saved, or to unlock a protected name. */
-  // @IsOptional()
-  // @Transform(emptyToUndefined)
-  // @IsString()
-  // @Length(1, 200)
-  // password?: string;
 }
