@@ -47,7 +47,6 @@ export interface CreateEventInput {
 export interface Session {
   participantId: string
   name: string
-  editToken: string
   /** Their saved slots (UTC ISO), to pre-fill the grid. */
   slots: string[]
 }
@@ -82,18 +81,16 @@ export const api = {
 
   getEvent: (eventId: string) => request<EventView>('GET', `/events/${eventId}`),
 
-  /** Creates the name the first time; a name saved. */
-  join: (eventId: string, name: string ) =>
+  /** Creates the name the first time; entering it again signs back in as that person. */
+  join: (eventId: string, name: string) =>
     request<Session>('POST', `/events/${eventId}/participants`, { name }),
 
   /** Replaces this participant's whole selection. Returns the refreshed event. */
   saveAvailability: (eventId: string, session: Session, slots: string[]) =>
-    request<EventView>('PUT', `/events/${eventId}/participants/${session.participantId}/availability`,
-      { slots }, { 'X-Edit-Token': session.editToken }),
+    request<EventView>('PUT', `/events/${eventId}/participants/${session.participantId}/availability`, { slots }),
 
   removeMe: (eventId: string, session: Session) =>
-    request<void>('DELETE', `/events/${eventId}/participants/${session.participantId}`,
-      undefined, { 'X-Edit-Token': session.editToken }),
+    request<void>('DELETE', `/events/${eventId}/participants/${session.participantId}`),
 }
 
 // Remember who you signed in as, per event, so a reload keeps your edits possible.

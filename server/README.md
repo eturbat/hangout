@@ -1,49 +1,95 @@
 # hangout server
 
 NestJS + TypeORM + PostgreSQL. Every instant is stored and sent as UTC;
-converting to someone's zone happens only for display.
+converting to someone's time zone happens only for display.
 
-## Layout
+## Run it
 
-| Path                                             | What                                                        |
-| ------------------------------------------------ | ----------------------------------------------------------- |
-| `src/scheduling/zoned-time.ts`                   | Timezone primitives on the built-in `Intl` API. No imports, so the frontend can reuse it. |
-| `src/scheduling/time-zone.service.ts`            | `TimeZoneService`: validates an event's schedule, generates its UTC slots. |
-| `src/scheduling/availability-aggregator.service.ts` | `AvailabilityAggregator`: who is free in each slot (heatmap data). |
-| `src/events/entities/`                           | `HangoutEvent`, `Participant`, `TimeSlot` (TypeORM).         |
-| `src/events/events.service.ts`                   | Create / view / join / save / delete.                       |
-| `src/security/`                                  | scrypt password hashing and HMAC edit tokens.               |
+```bash
+nix-shell                 # from the repo root: Node + Postgres (or see "Without Nix" in the root README)
+cd server
+cp .env.example .env      # then put your username in DATABASE_URL
+npm install
+npm test                  # unit tests, no database needed
+npm run test:e2e          # integration tests: need Postgres running
+npm run start:dev
+curl localhost:3000/api/health   # {"status":"ok","database":"up"}
+```
 
 ## API (all under `/api`)
 
-| Method | Path                                            | Body                                   | Returns |
-| ------ | ----------------------------------------------- | -------------------------------------- | ------- |
-| POST   | `/events`                                       | `title, description?, mode?, dates[], timeZone, dayStartMinutes, dayEndMinutes, slotMinutes?` | `{ id }` |
-| GET    | `/events/:id`                                   |                                        | event + every slot with `count` and `names` |
-| POST   | `/events/:id/participants`                      | `name, password?`                      | `{ participantId, name, editToken, slots[] }` |
-| PUT    | `/events/:id/participants/:pid/availability`    | `slots[]` (UTC ISO); header `X-Edit-Token` | refreshed event |
-| DELETE | `/events/:id/participants/:pid`                 | header `X-Edit-Token`                  | 204 |
+These are the calls `hangout/src/api.ts` makes.
 
-`dayStartMinutes`/`dayEndMinutes` are minutes after midnight in the event's
-`timeZone` (540 = 09:00; 1440 = end of day). Saving replaces the participant's
-whole selection in one transaction.
+| Method | Path                                         | Body                         | Returns |
+| ------ | -------------------------------------------- | ---------------------------- | ------- |
+| GET    | `/health`                                    |                              | `{ status, database }`, or 503 if Postgres is unreachable |
+| POST   | `/events`                                    | `title, description?, mode?, dates[], timeZone, dayStartMinutes, dayEndMinutes, slotMinutes?` | `{ id }` |
+| GET    | `/events/:id`                                |                              | the event, `participants` (names), `maxCount`, and every slot as `{ start, count, names }` |
+| POST   | `/events/:id/participants`                   | `name`                       | `{ participantId, name, slots[] }` |
+| PUT    | `/events/:id/participants/:pid/availability` | `slots[]` (UTC ISO strings)  | the refreshed event |
+| DELETE | `/events/:id/participants/:pid`              |                              | 204 |
 
-## Try it with curl
+- **Times.** `dayStartMinutes` and `dayEndMinutes` are minutes after midnight
+  in the event's `timeZone` (540 = 9:00 AM; 1440 = end of day).
+- **Names are the sign-in.** Signing in with a name that already exists signs
+  you in as that person, so anyone who enters a name can edit that name's
+  times, the same as on when2meet.
+- **Saving replaces.** Each save replaces the person's whole selection, in one
+  transaction.
+- **Errors.** The server answers 400 for invalid input (including fields it
+  doesn't expect) and 404 for unknown events or people.
 
-```bash
-EVENT=$(curl -s localhost:3000/api/events -H 'Content-Type: application/json' -d '{
-  "title": "Study call", "dates": ["2026-10-07"], "timeZone": "America/Los_Angeles",
-  "dayStartMinutes": 540, "dayEndMinutes": 1020, "slotMinutes": 60 }' | sed -E 's/.*"id":"([^"]+)".*/\1/')
+## Files
 
-curl -s localhost:3000/api/events/$EVENT/participants -H 'Content-Type: application/json' -d '{"name":"Luca"}'
-# copy participantId and editToken from the output, then:
-curl -s -X PUT localhost:3000/api/events/$EVENT/participants/PID/availability \
-  -H 'Content-Type: application/json' -H 'X-Edit-Token: TOKEN' \
-  -d '{"slots":["2026-10-07T16:00:00.000Z","2026-10-07T17:00:00.000Z"]}'
-```
+| File | What it does |
+| ---- | ------------ |
+| `src/main.ts` | Loads `.env`, applies `app.setup.ts`, optional CORS, starts listening |
+| `src/app.setup.ts` | The `/api` prefix and request validation, shared by `main.ts` and the API tests |
+| `src/app.module.ts` | Connects to Postgres; entities from feature modules register themselves |
+| `src/env.ts` | Reads `server/.env` with Node's built-in loader |
+| `src/health.controller.ts` | `GET /api/health` |
+| `src/events/entities/` | The tables: `HangoutEvent`, `Participant`, `TimeSlot`, with their factory methods and behavior |
+| `src/events/dto/` | Request bodies and their validation rules |
+| `src/events/responses/` | `EventDetails` and `JoinResult`, the exact JSON the frontend reads |
+| `src/events/events.controller.ts` | The routes; turns requests into `EventsService` calls |
+| `src/events/events.service.ts` | Creates events, signs people in, saves and removes availability |
+| `src/events/events.exceptions.ts` | Error classes extending NestJS's 404 and 400 exceptions |
+| `src/scheduling/zoned-time.ts` | Low-level time zone conversions on the built-in `Intl` API. An exact copy lives in `hangout/src/lib/`; a test fails if they differ |
+| `src/scheduling/time-zone.service.ts` | `TimeZoneService`: checks an event's dates, hours and zone, and lists its slots in UTC |
+| `src/scheduling/availability-aggregator.service.ts` | `AvailabilityAggregator`: asks each participant who is free in each slot |
+| `src/scheduling/heatmap.ts` | `SlotSummary` and `Heatmap` |
+| `src/testing/test-database.ts` | Points the integration tests at their own database |
+
+## Tables
+
+| Table          | Key                         | Holds                                                     |
+| -------------- | --------------------------- | --------------------------------------------------------- |
+| `events`       | `id` (random UUID)          | Title, dates, time zone, daily window, slot length        |
+| `participants` | `id` (UUID); unique `(eventId, name)` | A name someone joined under.                    |
+| `time_slots`   | `(participantId, startUtc)` | One row per slot someone marked free, as an exact UTC moment |
+
+Deleting an event deletes its participants, and deleting a participant
+deletes their slots.
+
+## How time zones work
+
+Only two places convert between UTC and someone's local clock: the
+server's `TimeZoneService`, which turns "9 AM to 5 PM in Los Angeles" into
+UTC slots, and the browser, which draws those slots in the viewer's zone.
+`generateSlots()` converts only the two edges of each day's window and steps
+through real time in between, so a daylight saving day automatically has
+one hour fewer or one more.
+
+If you change `src/scheduling/zoned-time.ts`, run `npm run sync:shared` in
+`hangout/` to copy it to the frontend.
 
 ## Tests
 
-`npm test` runs without a database. Expected values in the timezone tests are
-literal UTC strings worked out from published offsets, never computed with the
-code under test, including both 2026 fall DST changes (EU Oct 25, US Nov 1).
+| Command            | What it checks | Needs Postgres |
+| ------------------ | -------------- | -------------- |
+| `npm test`         | Unit tests: time zones and daylight saving (both 2026 Los Angeles changes, the EU change, Kathmandu, Lord Howe Island), the heatmap, the response shapes, entity methods, health check | No |
+| `npm run test:e2e` | Integration tests: the tables (keys, column types, cascading deletes), and every API route called with `fetch` like the frontend does | Yes |
+
+The integration tests use their own database, `hangout_test`. They create
+it the first time and empty it on every run, so your data in `hangout` is
+never touched. Set `TEST_DATABASE_URL` to use a different one.

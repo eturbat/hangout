@@ -88,16 +88,14 @@ async function signIn(): Promise<void> {
   }
   signingIn.value = true
   try {
-    const s = await api.join(props.eventId, trimmed )
+    const s = await api.join(props.eventId, trimmed)
     session.value = s
     saveSession(props.eventId, s)
     mySlots.value = new Set(s.slots)
     await load() // so your name appears in the group count
   } catch (error) {
-    if (!(error instanceof ApiError && error.status === 401)) {
-      signInError.value =
-        error instanceof ApiError ? error.message : "Couldn't reach the server. Check your connection and try again."
-    }
+    signInError.value =
+      error instanceof ApiError ? error.message : "Couldn't reach the server. Check your connection and try again."
   } finally {
     signingIn.value = false
   }
@@ -137,9 +135,10 @@ const saver = new LatestOnlySaver<{ session: Session; slots: string[] }, EventVi
       saveError.value = null
     },
     onError: (error) => {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 404)) {
+      if (error instanceof ApiError && error.status === 404) {
+        // This name was removed from the event, for example from another tab
         signOut()
-        signInError.value = 'Your sign-in for this event is no longer valid. Sign in again to keep editing.'
+        signInError.value = 'Your name is no longer part of this event. Sign in again to keep editing.'
       } else {
         saveError.value = "Couldn't save your times. Check your connection and try again."
       }

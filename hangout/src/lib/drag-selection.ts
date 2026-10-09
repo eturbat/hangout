@@ -35,7 +35,7 @@ export class DragSelection {
     return this.covers(pos) ? this.adding : committed
   }
 
-  /** Finishes the drag and returns the new selection */
+  /** Finishes the drag and returns the new selection (a new Set; `committed` is untouched). */
   end(cells: readonly (readonly (GridCell | null)[])[], committed: ReadonlySet<string>): Set<string> {
     const next = new Set(committed)
     if (this.anchor && this.current) {
