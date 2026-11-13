@@ -2,11 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ApiError, api, forgetSession, loadSession, saveSession } from '../api.ts'
 import type { EventView, Session } from '../api.ts'
+import { CoalescingRunner } from '../lib/coalescing-runner.ts'
 import { buildGrid } from '../lib/grid.ts'
 import { LatestOnlySaver } from '../lib/latest-only-saver.ts'
 import type { SaveStatus } from '../lib/latest-only-saver.ts'
 import { normalizeTimeZone } from '../lib/zoned-time.ts'
 import { browserTimeZone, zoneLabel } from '../lib/zones.ts'
+import { subscribeToEvent } from '../realtime.ts'
+import type { EventSubscription, Presence } from '../realtime.ts'
 import AvailabilityGrid from './AvailabilityGrid.vue'
 import TimeZoneSelect from './TimeZoneSelect.vue'
 
@@ -76,6 +79,7 @@ const total = computed(() => event.value?.participants.length ?? 0)
 const session = ref<Session | null>(loadSession(props.eventId))
 const mySlots = ref<Set<string>>(new Set())
 const name = ref('')
+const password = ref('')
 const signingIn = ref(false)
 const signInError = ref<string | null>(null)
 
@@ -88,10 +92,11 @@ async function signIn(): Promise<void> {
   }
   signingIn.value = true
   try {
-    const s = await api.join(props.eventId, trimmed)
+    const s = await api.join(props.eventId, trimmed, password.value)
     session.value = s
     saveSession(props.eventId, s)
     mySlots.value = new Set(s.slots)
+    password.value = ''
     await load() // so your name appears in the group count
   } catch (error) {
     signInError.value =
@@ -145,6 +150,11 @@ const saver = new LatestOnlySaver<{ session: Session; slots: string[] }, EventVi
     },
     onStatus: (status) => {
       saveStatus.value = status
+      // Catch up on changes that arrived while this save was running
+      if (status !== 'saving' && refreshDeferred) {
+        refreshDeferred = false
+        void refresher.request()
+      }
     },
   },
 )
@@ -158,6 +168,37 @@ const saveMessage = computed(() => {
   if (saveStatus.value === 'saving') return 'Saving…'
   if (saveStatus.value === 'saved') return 'Saved'
   return ''
+})
+
+// ---------- Real-time: refetch when someone else changes the event ----------
+
+// A save's response already carries the fresh event, so a change announced
+// during a save waits until the save is done instead of racing it.
+let refreshDeferred = false
+
+const refresher = new CoalescingRunner(async () => {
+  if (saver.busy) {
+    refreshDeferred = true
+    return
+  }
+  await load()
+  // This name was removed, for example with "Remove my times" in another tab
+  const s = session.value
+  if (s && event.value && !event.value.participants.includes(s.name)) {
+    signOut()
+    signInError.value = 'Your name is no longer part of this event. Sign in again to keep editing.'
+  }
+})
+
+// ---------- Presence: who's looking at this event right now ----------
+
+const presence = ref<Presence>({ names: [], guests: 0 })
+
+const viewingNow = computed(() => {
+  const { names, guests } = presence.value
+  const parts = [...names]
+  if (guests > 0) parts.push(names.length ? `${guests} ${guests === 1 ? 'guest' : 'guests'}` : `${guests} ${guests === 1 ? 'person' : 'people'}`)
+  return parts.join(', ')
 })
 
 // ---------- Hover: who's free at a slot ----------
@@ -200,7 +241,7 @@ async function copyLink(): Promise<void> {
 
 // ---------- Lifecycle ----------
 
-let refreshTimer = 0
+let subscription: EventSubscription | null = null
 
 onMounted(async () => {
   await load()
@@ -214,14 +255,19 @@ onMounted(async () => {
       signOut()
     }
   }
-  // Pick up other people's changes. Real-time sockets come in milestone 2.
-  refreshTimer = window.setInterval(() => {
-    if (document.visibilityState === 'visible' && !saver.busy) void load()
-  }, 10_000)
+  // Pick up other people's changes as they happen
+  subscription = subscribeToEvent(props.eventId, {
+    onChanged: () => void refresher.request(),
+    onPresence: (next) => (presence.value = next),
+    name: () => session.value?.name,
+  })
 })
 
+// Let other viewers see who you are once you sign in (or that you signed out)
+watch(() => session.value?.name, () => subscription?.updateName())
+
 onBeforeUnmount(() => {
-  window.clearInterval(refreshTimer)
+  subscription?.stop()
   window.clearTimeout(copiedTimer)
 })
 </script>
@@ -269,6 +315,21 @@ onBeforeUnmount(() => {
               <label class="field__label" for="your-name">Your name</label>
               <input id="your-name" v-model="name" class="input" maxlength="80" autocomplete="name" />
             </div>
+            <div class="field">
+              <label class="field__label" for="your-password">Password (optional)</label>
+              <input
+                id="your-password"
+                v-model="password"
+                class="input"
+                type="password"
+                maxlength="200"
+                autocomplete="new-password"
+                aria-describedby="your-password-hint"
+              />
+              <p id="your-password-hint" class="field__hint">
+                Set one to stop others editing your times. You'll need it to sign back in.
+              </p>
+            </div>
             <p v-if="signInError" class="error" role="alert">{{ signInError }}</p>
             <button class="btn" type="submit" :disabled="signingIn">{{ signingIn ? 'Signing in…' : 'Sign in' }}</button>
           </form>
@@ -304,6 +365,7 @@ onBeforeUnmount(() => {
 
         <section class="board" aria-labelledby="group-title">
           <h2 id="group-title" class="section-title">Everyone's availability</h2>
+          <p v-if="viewingNow" class="viewing-now"><span class="viewing-now__dot" aria-hidden="true"></span>Viewing now: {{ viewingNow }}</p>
           <p v-if="total === 0" class="board__hint">Nobody has added their times yet. Share the link to get started.</p>
           <div v-else class="legend">
             <span>0 of {{ total }} free</span>

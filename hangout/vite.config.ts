@@ -7,6 +7,10 @@ export default defineConfig({
   server: {
     // Forward API calls to the Nest server in development, so the browser sees
     // a single origin and no CORS setup is needed.
-    proxy: { '/api': 'http://localhost:3000' },
+    // /socket.io carries real-time updates, so WebSocket upgrades are forwarded too.
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/socket.io': { target: 'http://localhost:3000', ws: true },
+    },
   },
 })

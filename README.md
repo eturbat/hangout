@@ -41,9 +41,10 @@ brew services start postgresql@17      # keeps Postgres running in the backgroun
 Homebrew's Postgres has a user named after your Mac account with no password,
 so `DATABASE_URL` from `.env.example` works once you put in your username.
 
-To try the milestone 1 demo, create an event, then open its link in two
-browser windows. Set one to Los Angeles and the other to Ulaanbaatar with
-"Showing times in", sign in under different names, and drag. Each window
-picks up the other's changes within 10 seconds.
+To try it, create an event, then open its link in two browser windows. Set
+one to Los Angeles and the other to Ulaanbaatar with "Showing times in", sign
+in under different names, and drag. Each window shows the other's changes
+right away over Socket.IO, and "Viewing now" lists who has the page open.
+Give a password when you sign in to stop others from editing your name.
 
 See [server/README.md](server/README.md) for the API and [hangout/README.md](hangout/README.md) for the frontend.

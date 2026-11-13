@@ -137,6 +137,42 @@ describe('Events API (integration)', () => {
       const { body } = await call('GET', `/events/${eventId}`);
       expect(body.participants).toEqual(['Luca']);
     });
+
+    it('needs the password again for a name that was saved with one', async () => {
+      const eventId = await createEvent();
+      const joinAs = (name: string, password?: string) =>
+        call('POST', `/events/${eventId}/participants`, password === undefined ? { name } : { name, password });
+
+      const created = await joinAs('Luca', 'hunter2');
+      expect(created.status).toBe(201);
+      expect(created.body).toEqual({ participantId: expect.any(String), name: 'Luca', slots: [] });
+
+      expect((await joinAs('Luca')).status).toBe(401);
+      expect((await joinAs('Luca', '')).status).toBe(401); // empty counts as no password
+      const wrong = await joinAs('Luca', 'hunter3');
+      expect(wrong.status).toBe(401);
+      expect(wrong.body.participantId).toBeUndefined();
+
+      const right = await joinAs('Luca', 'hunter2');
+      expect(right.status).toBe(201);
+      expect(right.body.participantId).toBe(created.body.participantId);
+
+      const { body } = await call('GET', `/events/${eventId}`);
+      expect(JSON.stringify(body)).not.toContain('passwordHash');
+      expect(JSON.stringify(body)).not.toContain('scrypt');
+    });
+
+    it('keeps a name without a password open, even if someone later sends one', async () => {
+      const eventId = await createEvent();
+      const open = await join(eventId, 'Turbat');
+
+      // Sending a password for an existing open name signs in without protecting it
+      const withPassword = await call('POST', `/events/${eventId}/participants`, { name: 'Turbat', password: 'mine now' });
+      expect(withPassword.status).toBe(201);
+      expect(withPassword.body.participantId).toBe(open.participantId);
+
+      expect((await join(eventId, 'Turbat')).participantId).toBe(open.participantId);
+    });
   });
 
   describe('saving availability', () => {

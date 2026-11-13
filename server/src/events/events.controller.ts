@@ -23,10 +23,10 @@ export class EventsController {
     return this.eventsService.getEvent(id);
   }
 
-  // POST /api/events/:id/participants { name } -> { participantId, name, slots }
+  // POST /api/events/:id/participants { name, password? } -> { participantId, name, slots }
   @Post(':id/participants')
   join(@Param('id', ParseUUIDPipe) id: string, @Body() dto: JoinEventDto) {
-    return this.eventsService.join(id, dto.name);
+    return this.eventsService.join(id, dto.name, dto.password);
   }
 
   // PUT /api/events/:id/participants/:participantId/availability { slots } -> the refreshed event

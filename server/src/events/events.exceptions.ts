@@ -1,7 +1,7 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
 // Our error types. Each extends one of NestJS's HTTP exceptions, so NestJS
-// sends the right status code (404 or 400) and message by itself.
+// sends the right status code (404, 400 or 401) and message by itself.
 
 export class EventNotFoundException extends NotFoundException {
   constructor() {
@@ -18,5 +18,11 @@ export class ParticipantNotFoundException extends NotFoundException {
 export class InvalidSlotsException extends BadRequestException {
   constructor(count: number, example: Date) {
     super(`${count} of those times are not part of this event, e.g. ${example.toISOString()}`);
+  }
+}
+
+export class WrongPasswordException extends UnauthorizedException {
+  constructor() {
+    super('That name is protected. Enter its password to edit it.');
   }
 }

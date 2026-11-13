@@ -14,6 +14,7 @@
   --sun: #f4a51c;
   --focus: #5b4be0;
   --danger: #b42318;
+  --live: #1f9d63;
 
   --font: FreeMono, monospace;
 
@@ -308,6 +309,23 @@ a {
 
 .sign-in .btn {
   justify-self: start;
+}
+
+.viewing-now {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.viewing-now__dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--live);
 }
 
 .save-status {
