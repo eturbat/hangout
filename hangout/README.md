@@ -8,12 +8,14 @@ Vite + Vue 3 + TypeScript. Run it next to the server (see the root README);
 | Path                              | What                                                            |
 | --------------------------------- | --------------------------------------------------------------- |
 | `src/App.vue`                     | Two routes: `/` creates an event, `/e/<id>` shows one.          |
-| `src/components/EventPage.vue`    | Share link, timezone switcher, sign-in, both grids, autosave.   |
+| `src/components/EventPage.vue`    | Share link, timezone switcher, sign-in (optional password), both grids, autosave, live updates, "Viewing now". |
+| `src/realtime.ts`                 | Socket.IO client: refetch when the event changes, and who is viewing it. |
 | `src/components/AvailabilityGrid.vue` | Your drag-to-select grid, or the group heatmap.             |
 | `src/lib/grid.ts`                 | Places UTC slots into local-date columns and local-time rows for the viewer's zone, including DST days. |
 | `src/lib/drag-selection.ts`       | when2meet-style rectangle selection (add or erase).             |
 | `src/lib/pointer.ts`              | Mouse/touch/pen drag wiring via `elementFromPoint`.             |
 | `src/lib/latest-only-saver.ts`    | Sends one save at a time, always the newest selection.          |
+| `src/lib/coalescing-runner.ts`    | Runs one refetch at a time, folding a burst of change messages into one rerun. |
 | `src/lib/zoned-time.ts`           | Exact copy of the server's file. Edit the server one, then `npm run sync:shared`. |
 
 Everything in `src/lib` is plain TypeScript with no Vue, so `npm test`
