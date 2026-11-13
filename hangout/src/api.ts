@@ -81,9 +81,12 @@ export const api = {
 
   getEvent: (eventId: string) => request<EventView>('GET', `/events/${eventId}`),
 
-  /** Creates the name the first time; entering it again signs back in as that person. */
-  join: (eventId: string, name: string) =>
-    request<Session>('POST', `/events/${eventId}/participants`, { name }),
+  /**
+   * Creates the name the first time, protected by `password` if one is given.
+   * Entering it again signs back in as that person; a protected name answers 401 without its password.
+   */
+  join: (eventId: string, name: string, password?: string) =>
+    request<Session>('POST', `/events/${eventId}/participants`, { name, password: password || undefined }),
 
   /** Replaces this participant's whole selection. Returns the refreshed event. */
   saveAvailability: (eventId: string, session: Session, slots: string[]) =>

@@ -78,6 +78,7 @@ const total = computed(() => event.value?.participants.length ?? 0)
 const session = ref<Session | null>(loadSession(props.eventId))
 const mySlots = ref<Set<string>>(new Set())
 const name = ref('')
+const password = ref('')
 const signingIn = ref(false)
 const signInError = ref<string | null>(null)
 
@@ -90,10 +91,11 @@ async function signIn(): Promise<void> {
   }
   signingIn.value = true
   try {
-    const s = await api.join(props.eventId, trimmed)
+    const s = await api.join(props.eventId, trimmed, password.value)
     session.value = s
     saveSession(props.eventId, s)
     mySlots.value = new Set(s.slots)
+    password.value = ''
     await load() // so your name appears in the group count
   } catch (error) {
     signInError.value =
@@ -293,6 +295,21 @@ onBeforeUnmount(() => {
             <div class="field">
               <label class="field__label" for="your-name">Your name</label>
               <input id="your-name" v-model="name" class="input" maxlength="80" autocomplete="name" />
+            </div>
+            <div class="field">
+              <label class="field__label" for="your-password">Password (optional)</label>
+              <input
+                id="your-password"
+                v-model="password"
+                class="input"
+                type="password"
+                maxlength="200"
+                autocomplete="new-password"
+                aria-describedby="your-password-hint"
+              />
+              <p id="your-password-hint" class="field__hint">
+                Set one to stop others editing your times. You'll need it to sign back in.
+              </p>
             </div>
             <p v-if="signInError" class="error" role="alert">{{ signInError }}</p>
             <button class="btn" type="submit" :disabled="signingIn">{{ signingIn ? 'Signing in…' : 'Sign in' }}</button>
