@@ -9,6 +9,7 @@ import type { SaveStatus } from '../lib/latest-only-saver.ts'
 import { normalizeTimeZone } from '../lib/zoned-time.ts'
 import { browserTimeZone, zoneLabel } from '../lib/zones.ts'
 import { subscribeToEvent } from '../realtime.ts'
+import type { EventSubscription, Presence } from '../realtime.ts'
 import AvailabilityGrid from './AvailabilityGrid.vue'
 import TimeZoneSelect from './TimeZoneSelect.vue'
 
@@ -189,6 +190,17 @@ const refresher = new CoalescingRunner(async () => {
   }
 })
 
+// ---------- Presence: who's looking at this event right now ----------
+
+const presence = ref<Presence>({ names: [], guests: 0 })
+
+const viewingNow = computed(() => {
+  const { names, guests } = presence.value
+  const parts = [...names]
+  if (guests > 0) parts.push(names.length ? `${guests} ${guests === 1 ? 'guest' : 'guests'}` : `${guests} ${guests === 1 ? 'person' : 'people'}`)
+  return parts.join(', ')
+})
+
 // ---------- Hover: who's free at a slot ----------
 
 const hovered = ref<string | null>(null)
@@ -229,7 +241,7 @@ async function copyLink(): Promise<void> {
 
 // ---------- Lifecycle ----------
 
-let unsubscribe: (() => void) | null = null
+let subscription: EventSubscription | null = null
 
 onMounted(async () => {
   await load()
@@ -244,11 +256,18 @@ onMounted(async () => {
     }
   }
   // Pick up other people's changes as they happen
-  unsubscribe = subscribeToEvent(props.eventId, () => void refresher.request())
+  subscription = subscribeToEvent(props.eventId, {
+    onChanged: () => void refresher.request(),
+    onPresence: (next) => (presence.value = next),
+    name: () => session.value?.name,
+  })
 })
 
+// Let other viewers see who you are once you sign in (or that you signed out)
+watch(() => session.value?.name, () => subscription?.updateName())
+
 onBeforeUnmount(() => {
-  unsubscribe?.()
+  subscription?.stop()
   window.clearTimeout(copiedTimer)
 })
 </script>
@@ -346,6 +365,7 @@ onBeforeUnmount(() => {
 
         <section class="board" aria-labelledby="group-title">
           <h2 id="group-title" class="section-title">Everyone's availability</h2>
+          <p v-if="viewingNow" class="viewing-now"><span class="viewing-now__dot" aria-hidden="true"></span>Viewing now: {{ viewingNow }}</p>
           <p v-if="total === 0" class="board__hint">Nobody has added their times yet. Share the link to get started.</p>
           <div v-else class="legend">
             <span>0 of {{ total }} free</span>

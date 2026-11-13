@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { randomUUID } from 'node:crypto';
 import { io, Socket } from 'socket.io-client';
 import { DataSource } from 'typeorm';
 import { AppModule } from './app.module';
@@ -56,14 +57,16 @@ describe('Real-time updates (integration)', () => {
     ).id;
 
   // Connects, subscribes to `eventId`, and records every message received afterwards
-  async function viewer(eventId: string) {
+  async function viewer(eventId: string, name?: string) {
     const socket = io(origin, { transports: ['websocket'], forceNew: true });
     sockets.push(socket);
     const changed: string[] = [];
+    const presence: { names: string[]; guests: number }[] = [];
     socket.on('event:changed', (message: { eventId: string }) => changed.push(message.eventId));
-    const ack = await socket.timeout(5000).emitWithAck('event:subscribe', { eventId });
+    socket.on('event:presence', (message: { names: string[]; guests: number }) => presence.push(message));
+    const ack = await socket.timeout(5000).emitWithAck('event:subscribe', { eventId, name });
     expect(ack).toEqual({ ok: true });
-    return { socket, changed };
+    return { socket, changed, presence };
   }
 
   // Waits until `check` passes, for messages that arrive a moment after the HTTP response
@@ -124,4 +127,16 @@ describe('Real-time updates (integration)', () => {
     expect(ack).toEqual({ ok: false, error: expect.any(String) });
   });
 
+  it('shares who is viewing the event right now', async () => {
+    const eventId = randomUUID(); // presence works without touching the database
+    const ana = await viewer(eventId, 'Ana');
+    const ben = await viewer(eventId, 'Ben');
+    await viewer(eventId); // a guest who hasn't signed in
+    await viewer(eventId, 'Ana'); // Ana's second tab
+
+    await eventually(() => expect(ana.presence.at(-1)).toMatchObject({ names: ['Ana', 'Ben'], guests: 1 }));
+
+    ben.socket.disconnect();
+    await eventually(() => expect(ana.presence.at(-1)).toMatchObject({ names: ['Ana'], guests: 1 }));
+  });
 });
