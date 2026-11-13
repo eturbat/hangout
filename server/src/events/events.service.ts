@@ -7,7 +7,13 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { HangoutEvent } from './entities/hangout-event.entity';
 import { Participant } from './entities/participant.entity';
 import { TimeSlot } from './entities/time-slot.entity';
-import { EventNotFoundException, InvalidSlotsException, ParticipantNotFoundException } from './events.exceptions';
+import {
+  EventNotFoundException,
+  InvalidSlotsException,
+  ParticipantNotFoundException,
+  WrongPasswordException,
+} from './events.exceptions';
+import { hashPassword, verifyPassword } from './password';
 import { EventDetails } from './responses/event-details.response';
 import { JoinResult } from './responses/join-result.response';
 
@@ -53,18 +59,21 @@ export class EventsService {
     return new EventDetails(event, heatmap);
   }
 
-  // Signs someone in under a name. A new name is created; an existing one is
-  // simply used again, so people can come back and edit their times.
-  async join(eventId: string, name: string): Promise<JoinResult> {
+  // Signs someone in under a name. A new name is created, protected by
+  // `password` if one is given. An existing name is used again, so people can
+  // come back and edit their times; a protected one needs its password.
+  async join(eventId: string, name: string, password?: string): Promise<JoinResult> {
     await this.findEvent(eventId);
 
     const existing = await this.findParticipantByName(eventId, name);
     if (existing) {
-      return new JoinResult(existing);
+      return this.signInExisting(existing, password);
     }
 
+    const passwordHash = password ? await hashPassword(password) : null;
     try {
-      return new JoinResult(await this.participants.save(Participant.create(eventId, name)));
+      const created = await this.participants.save(Participant.create(eventId, name, passwordHash));
+      return new JoinResult(created);
     } catch (error) {
       // Two people chose the same new name at the same moment, and the
       // database's unique (eventId, name) rule rejected the second one.
@@ -72,8 +81,17 @@ export class EventsService {
       if (!isUniqueViolation(error)) throw error;
       const winner = await this.findParticipantByName(eventId, name);
       if (!winner) throw error;
-      return new JoinResult(winner);
+      return this.signInExisting(winner, password);
     }
+  }
+
+  // A protected name needs its password. For a name without one, any password
+  // sent is ignored, so nobody can lock someone else out of their name.
+  private async signInExisting(participant: Participant, password: string | undefined): Promise<JoinResult> {
+    if (participant.passwordHash && !(password && (await verifyPassword(password, participant.passwordHash)))) {
+      throw new WrongPasswordException();
+    }
+    return new JoinResult(participant);
   }
 
   // Replaces a person's whole set of free slots with `slotStrings`

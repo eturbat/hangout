@@ -2,8 +2,9 @@ import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, Pri
 import { HangoutEvent } from './hangout-event.entity';
 import { TimeSlot } from './time-slot.entity';
 
-// Someone who joined an event under a name. There are no accounts:
-// entering a name signs you in as that name, like when2meet.
+// Someone who joined an event under a name. There are no accounts: entering a
+// name signs you in as that name, like when2meet, unless whoever created the
+// name protected it with a password.
 @Entity('participants')
 @Unique(['eventId', 'name']) // a name can only be used once per event
 export class Participant {
@@ -21,6 +22,11 @@ export class Participant {
   @Column({ type: 'varchar', length: 80 })
   name!: string;
 
+  // scrypt hash (see events/password.ts), or null if the name isn't protected.
+  // Never sent to the browser: EventDetails and JoinResult copy only what they need.
+  @Column({ type: 'text', nullable: true })
+  passwordHash!: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 
@@ -28,10 +34,11 @@ export class Participant {
   slots!: TimeSlot[];
 
   // Factory method: a new, not-yet-saved participant with no times marked
-  static create(eventId: string, name: string): Participant {
+  static create(eventId: string, name: string, passwordHash: string | null = null): Participant {
     const participant = new Participant();
     participant.eventId = eventId;
     participant.name = name;
+    participant.passwordHash = passwordHash;
     participant.slots = [];
     return participant;
   }
