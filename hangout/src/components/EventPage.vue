@@ -2,11 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ApiError, api, forgetSession, loadSession, saveSession } from '../api.ts'
 import type { EventView, Session } from '../api.ts'
+import { CoalescingRunner } from '../lib/coalescing-runner.ts'
 import { buildGrid } from '../lib/grid.ts'
 import { LatestOnlySaver } from '../lib/latest-only-saver.ts'
 import type { SaveStatus } from '../lib/latest-only-saver.ts'
 import { normalizeTimeZone } from '../lib/zoned-time.ts'
 import { browserTimeZone, zoneLabel } from '../lib/zones.ts'
+import { subscribeToEvent } from '../realtime.ts'
 import AvailabilityGrid from './AvailabilityGrid.vue'
 import TimeZoneSelect from './TimeZoneSelect.vue'
 
@@ -145,6 +147,11 @@ const saver = new LatestOnlySaver<{ session: Session; slots: string[] }, EventVi
     },
     onStatus: (status) => {
       saveStatus.value = status
+      // Catch up on changes that arrived while this save was running
+      if (status !== 'saving' && refreshDeferred) {
+        refreshDeferred = false
+        void refresher.request()
+      }
     },
   },
 )
@@ -158,6 +165,26 @@ const saveMessage = computed(() => {
   if (saveStatus.value === 'saving') return 'Saving…'
   if (saveStatus.value === 'saved') return 'Saved'
   return ''
+})
+
+// ---------- Real-time: refetch when someone else changes the event ----------
+
+// A save's response already carries the fresh event, so a change announced
+// during a save waits until the save is done instead of racing it.
+let refreshDeferred = false
+
+const refresher = new CoalescingRunner(async () => {
+  if (saver.busy) {
+    refreshDeferred = true
+    return
+  }
+  await load()
+  // This name was removed, for example with "Remove my times" in another tab
+  const s = session.value
+  if (s && event.value && !event.value.participants.includes(s.name)) {
+    signOut()
+    signInError.value = 'Your name is no longer part of this event. Sign in again to keep editing.'
+  }
 })
 
 // ---------- Hover: who's free at a slot ----------
@@ -200,7 +227,7 @@ async function copyLink(): Promise<void> {
 
 // ---------- Lifecycle ----------
 
-let refreshTimer = 0
+let unsubscribe: (() => void) | null = null
 
 onMounted(async () => {
   await load()
@@ -214,14 +241,12 @@ onMounted(async () => {
       signOut()
     }
   }
-  // Pick up other people's changes. Real-time sockets come in milestone 2.
-  refreshTimer = window.setInterval(() => {
-    if (document.visibilityState === 'visible' && !saver.busy) void load()
-  }, 10_000)
+  // Pick up other people's changes as they happen
+  unsubscribe = subscribeToEvent(props.eventId, () => void refresher.request())
 })
 
 onBeforeUnmount(() => {
-  window.clearInterval(refreshTimer)
+  unsubscribe?.()
   window.clearTimeout(copiedTimer)
 })
 </script>
