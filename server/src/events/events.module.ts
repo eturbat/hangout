@@ -5,6 +5,7 @@ import { HangoutEvent } from './entities/hangout-event.entity';
 import { Participant } from './entities/participant.entity';
 import { TimeSlot } from './entities/time-slot.entity';
 import { EventsController } from './events.controller';
+import { EventsGateway } from './events.gateway';
 import { EventsService } from './events.service';
 
 @Module({
@@ -15,6 +16,7 @@ import { EventsService } from './events.service';
     SchedulingModule,
   ],
   controllers: [EventsController],
-  providers: [EventsService],
+  // EventsGateway sends real-time updates over Socket.IO (see events.gateway.ts)
+  providers: [EventsService, EventsGateway],
 })
 export class EventsModule {}

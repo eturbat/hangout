@@ -13,6 +13,7 @@ import {
   ParticipantNotFoundException,
   WrongPasswordException,
 } from './events.exceptions';
+import { EventsGateway } from './events.gateway';
 import { hashPassword, verifyPassword } from './password';
 import { EventDetails } from './responses/event-details.response';
 import { JoinResult } from './responses/join-result.response';
@@ -29,6 +30,7 @@ export class EventsService {
     private readonly dataSource: DataSource,
     private readonly timeZones: TimeZoneService,
     private readonly aggregator: AvailabilityAggregator,
+    private readonly gateway: EventsGateway,
   ) {}
 
   async create(dto: CreateEventDto): Promise<{ id: string }> {
@@ -73,6 +75,7 @@ export class EventsService {
     const passwordHash = password ? await hashPassword(password) : null;
     try {
       const created = await this.participants.save(Participant.create(eventId, name, passwordHash));
+      this.gateway.notifyChanged(eventId); // a new name appears in everyone's list
       return new JoinResult(created);
     } catch (error) {
       // Two people chose the same new name at the same moment, and the
@@ -129,6 +132,7 @@ export class EventsService {
       }
     });
 
+    this.gateway.notifyChanged(eventId);
     return this.getEvent(eventId);
   }
 
@@ -138,6 +142,7 @@ export class EventsService {
     if (!result.affected) {
       throw new ParticipantNotFoundException();
     }
+    this.gateway.notifyChanged(eventId);
   }
 
   private async findEvent(id: string): Promise<HangoutEvent> {
